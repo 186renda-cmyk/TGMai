@@ -2,17 +2,32 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://tgmai.top/</loc>
-    <lastmod>2025-12-14</lastmod>
+    <lastmod>2026-01-02</lastmod>
     <priority>1.0</priority>
+    <changefreq>daily</changefreq>
   </url>
   <url>
     <loc>https://tgmai.top/blog/</loc>
-    <lastmod>2025-12-14</lastmod>
+    <lastmod>2026-01-02</lastmod>
     <priority>0.8</priority>
+    <changefreq>weekly</changefreq>
   </url>
   <url>
     <loc>https://tgmai.top/blog/tg-chinese-pack.html</loc>
     <lastmod>2025-12-14</lastmod>
     <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://tgmai.top/blog/template.html</loc>
+    <lastmod>2025-12-14</lastmod>
+    <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://tgmai.top/blog/tg-account-banned.html</loc>
+    <lastmod>2026-01-02</lastmod>
+    <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
   </url>
 </urlset>
