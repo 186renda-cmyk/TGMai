@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 # 配置
 HOST = "tgmai.top"
-KEY = "40018cb2a4bb4b24be9e4d4493993404"
+KEY = "d18753b123184422bd671c0d6263beff"
 KEY_LOCATION = f"https://{HOST}/{KEY}.txt"
 # 获取脚本所在目录的 sitemap.xml (因为脚本现在在根目录)
 SITEMAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sitemap.xml")
@@ -55,7 +55,10 @@ def push_to_indexnow(urls):
     req = urllib.request.Request(
         INDEXNOW_ENDPOINT, 
         data=json_data, 
-        headers={'Content-Type': 'application/json; charset=utf-8'}
+        headers={
+            'Content-Type': 'application/json; charset=utf-8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
     )
 
     try:
