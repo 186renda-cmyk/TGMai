@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 # 配置
 HOST = "tgmai.top"
-KEY = "7755e297b53646acaa29d35367f9a4a7"
+KEY = "40018cb2a4bb4b24be9e4d4493993404"
 KEY_LOCATION = f"https://{HOST}/{KEY}.txt"
 # 获取脚本所在目录的 sitemap.xml (因为脚本现在在根目录)
 SITEMAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sitemap.xml")
