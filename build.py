@@ -603,6 +603,11 @@ def process_posts():
     # 5. Update Blog Index HTML
     update_blog_index_html(posts)
     
+    # 5.1 Update other static pages
+    update_static_page("sitemap.html")
+    update_static_page("privacy-terms.html")
+    update_static_page("about.html")
+    
     # 6. Generate Sitemap
     generate_sitemap(posts)
     
@@ -667,6 +672,60 @@ def update_index_html(posts):
     fix_seo_tags(soup, f"{DOMAIN}/")
             
     with open(INDEX_FILE, 'w', encoding='utf-8') as f:
+        f.write(str(soup.prettify()))
+
+def update_static_page(filename):
+    """Update static pages like sitemap.html, privacy-terms.html, about.html with new Nav/Footer"""
+    if not os.path.exists(filename):
+        print(f"Warning: {filename} not found.")
+        return
+
+    print(f"Updating {filename}...")
+    
+    # Sync Layout from Index
+    nav_component, footer_component, _ = get_layout_components()
+    
+    with open(filename, 'r', encoding='utf-8') as f:
+        soup = BeautifulSoup(f, 'html.parser')
+
+    import copy
+    
+    # Update Nav
+    if nav_component:
+        old_nav = soup.find('nav')
+        if old_nav:
+            new_nav = copy.copy(nav_component)
+            # Ensure links are clean
+            for a in new_nav.find_all('a', href=True):
+                a['href'] = resolve_anchor_to_root(a['href'])
+            for img in new_nav.find_all('img', src=True):
+                img['src'] = resolve_anchor_to_root(img['src'])
+            old_nav.replace_with(new_nav)
+            
+    # Update Footer
+    if footer_component:
+        old_footer = soup.find('footer')
+        if old_footer:
+            new_footer = copy.copy(footer_component)
+            for a in new_footer.find_all('a', href=True):
+                a['href'] = resolve_anchor_to_root(a['href'])
+            for img in new_footer.find_all('img', src=True):
+                img['src'] = resolve_anchor_to_root(img['src'])
+            old_footer.replace_with(new_footer)
+            
+    # Clean URLs in the page
+    for tag in soup.find_all(['a', 'link'], href=True):
+        # Skip SEO tags (canonical, alternate/hreflang)
+        rel = tag.get('rel', [])
+        if isinstance(rel, str): rel = [rel]
+        if set(rel) & {'canonical', 'alternate'}:
+            continue
+        tag['href'] = clean_url(tag['href'])
+        
+    for tag in soup.find_all(['script', 'img'], src=True):
+        tag['src'] = clean_url(tag['src'])
+
+    with open(filename, 'w', encoding='utf-8') as f:
         f.write(str(soup.prettify()))
 
 def update_blog_index_html(posts):
