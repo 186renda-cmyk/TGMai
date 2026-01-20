@@ -516,6 +516,12 @@ def process_posts():
         # --- Phase 1: Clean URL (Global) ---
         # We already cleaned specific parts, but let's do a final pass on all tags just in case
         for tag in soup.find_all(['a', 'link'], href=True):
+            # Skip SEO tags (canonical, alternate/hreflang)
+            rel = tag.get('rel', [])
+            if isinstance(rel, str): rel = [rel]
+            if set(rel) & {'canonical', 'alternate'}:
+                continue
+            
             # Skip icons in global clean if they are files (logic inside clean_url handles .html)
             # But we want to ensure favicons are not touched if they are absolute.
             # clean_url mostly handles .html removal and domain stripping.
