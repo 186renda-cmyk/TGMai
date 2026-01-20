@@ -674,7 +674,7 @@ def update_index_html(posts):
     with open(INDEX_FILE, 'w', encoding='utf-8') as f:
         f.write(str(soup.prettify()))
 
-def update_static_page(filename):
+def update_static_page(filename, title=None, breadcrumb_name=None):
     """Update static pages like sitemap.html, privacy-terms.html, about.html with new Nav/Footer"""
     if not os.path.exists(filename):
         print(f"Warning: {filename} not found.")
@@ -713,6 +713,54 @@ def update_static_page(filename):
                 img['src'] = resolve_anchor_to_root(img['src'])
             old_footer.replace_with(new_footer)
             
+    # Inject JSON-LD Schema
+    head = soup.head
+    if head and title and breadcrumb_name:
+        # Remove old schema
+        for s in head.find_all('script', type="application/ld+json"):
+            s.decompose()
+            
+        # BreadcrumbList Schema
+        schema_bread = {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "首页", "item": f"{DOMAIN}/"},
+                {"@type": "ListItem", "position": 2, "name": breadcrumb_name, "item": f"{DOMAIN}/{filename.replace('.html', '')}"}
+            ]
+        }
+        script_bread = soup.new_tag('script', type="application/ld+json")
+        script_bread.string = json.dumps(schema_bread, ensure_ascii=False, indent=2)
+        head.append(script_bread)
+        head.append('\n')
+
+    # Inject Visual Breadcrumb (if main exists)
+    main_tag = soup.find('main')
+    if main_tag and breadcrumb_name:
+        # Check if we need to insert breadcrumb
+        # We usually insert it at the very top of main, inside a container if possible
+        # Or check if there is an existing one to replace?
+        # For static pages, let's just assume we want to ensure it exists or replace it.
+        
+        existing_bread = main_tag.find('nav', attrs={'aria-label': 'Breadcrumb'})
+        if existing_bread:
+            existing_bread.decompose()
+            
+        # Generate new breadcrumb HTML
+        bread_html = f"""
+        <nav aria-label="Breadcrumb" class="mb-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+            <ol class="flex items-center space-x-2 text-sm text-slate-400">
+                <li><a href="/" class="hover:text-[#24A1DE] transition">首页</a></li>
+                <li><span class="text-slate-600">/</span></li>
+                <li><span aria-current="page" class="text-[#24A1DE] font-medium">{breadcrumb_name}</span></li>
+            </ol>
+        </nav>
+        """
+        bread_soup = BeautifulSoup(bread_html, 'html.parser')
+        
+        # Insert at top of main
+        main_tag.insert(0, bread_soup)
+
     # Clean URLs in the page
     for tag in soup.find_all(['a', 'link'], href=True):
         # Skip SEO tags (canonical, alternate/hreflang)
