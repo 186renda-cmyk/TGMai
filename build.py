@@ -108,6 +108,26 @@ def clean_url(url):
     
     return url
 
+def resolve_anchor_to_root(url):
+    """
+    Clean URL and ensure anchors point to root (e.g. #faq -> /#faq)
+    Also ensure relative paths from index.html become root-relative (e.g. blog/ -> /blog/)
+    """
+    url = clean_url(url)
+    if not url:
+        return url
+        
+    if url.startswith(('http', 'mailto:', 'tel:', 'tg:')):
+        return url
+
+    if url.startswith('#'):
+        return '/' + url
+        
+    if not url.startswith('/'):
+        return '/' + url
+        
+    return url
+
 def fix_relative_links_in_post(soup):
     """
     Fix relative links in blog posts (e.g. href="foo.html" -> href="/blog/foo")
@@ -472,9 +492,9 @@ def process_posts():
         
         # Fix Nav links in component (relative to root)
         # Since they come from index.html (root), they should be fine as absolute paths /...
-        # But we need to ensure they are clean
+        # But we need to ensure they are clean and anchors point to root
         for a in new_nav.find_all('a', href=True):
-            a['href'] = clean_url(a['href'])
+            a['href'] = resolve_anchor_to_root(a['href'])
             
         new_body.append(new_nav)
         new_body.append('\n')
@@ -540,7 +560,7 @@ def process_posts():
         # Inject Footer
         new_footer = copy.copy(footer_component)
         for a in new_footer.find_all('a', href=True):
-            a['href'] = clean_url(a['href'])
+            a['href'] = resolve_anchor_to_root(a['href'])
         new_body.append(new_footer)
         
         # Replace Body
@@ -665,7 +685,7 @@ def update_blog_index_html(posts):
             new_nav = copy.copy(nav_component)
             # Ensure links are clean
             for a in new_nav.find_all('a', href=True):
-                a['href'] = clean_url(a['href'])
+                a['href'] = resolve_anchor_to_root(a['href'])
             old_nav.replace_with(new_nav)
             
     # Update Footer
@@ -674,7 +694,7 @@ def update_blog_index_html(posts):
         if old_footer:
             new_footer = copy.copy(footer_component)
             for a in new_footer.find_all('a', href=True):
-                a['href'] = clean_url(a['href'])
+                a['href'] = resolve_anchor_to_root(a['href'])
             old_footer.replace_with(new_footer)
         
     # Generate Cards for ALL posts
