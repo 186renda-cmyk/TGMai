@@ -754,7 +754,16 @@ def update_blog_index_html(posts):
 
 def generate_sitemap(posts):
     print("Generating sitemap.xml...")
-    urls = [DOMAIN + "/"]
+    # Static Pages
+    urls = [
+        DOMAIN + "/",
+        DOMAIN + "/blog/",
+        DOMAIN + "/about",
+        DOMAIN + "/privacy-terms",
+        DOMAIN + "/sitemap"
+    ]
+    
+    # Add Blog Posts
     for post in posts:
         urls.append(post['canonical_url'])
         
