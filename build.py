@@ -74,15 +74,14 @@ def get_category_from_filename(filename):
 def clean_url(url):
     """
     Convert URL to root-relative and remove .html suffix.
-    Examples:
-    - https://tgmai.top/blog/foo.html -> /blog/foo
-    - ../index.html -> /
-    - foo.html -> foo (if relative) -> handled carefully
-    - /assets/logo.png -> /assets/logo.png (preserved)
     """
     if not url:
         return url
         
+    # Skip non-http protocols (javascript, tel, mailto, tg, etc)
+    if any(url.startswith(p) for p in ['javascript:', 'mailto:', 'tel:', 'tg:', 'data:']):
+        return url
+
     # External links - keep as is, but if it points to our domain, clean it
     if url.startswith('http'):
         if DOMAIN in url:
@@ -101,28 +100,30 @@ def clean_url(url):
         url = '/'
     
     # Handle relative paths ../
-    if '../' in url:
+    # Only replace if it's a local path
+    if '../' in url and not url.startswith('http'):
         # This is tricky without knowing base, but we assume we want absolute paths for everything
         # If we are in /blog/, ../index.html means /index.html -> /
-        url = url.replace('../', '/') # simplified assumption
+        url = url.replace('../', '/') 
     
     return url
 
 def resolve_anchor_to_root(url):
     """
-    Clean URL and ensure anchors point to root (e.g. #faq -> /#faq)
-    Also ensure relative paths from index.html become root-relative (e.g. blog/ -> /blog/)
+    Clean URL and ensure it is an absolute path from root.
     """
     url = clean_url(url)
     if not url:
         return url
         
-    if url.startswith(('http', 'mailto:', 'tel:', 'tg:')):
+    if any(url.startswith(p) for p in ['http', 'mailto:', 'tel:', 'tg:', 'javascript:', 'data:']):
         return url
 
+    # If it's an anchor, prepend /
     if url.startswith('#'):
         return '/' + url
         
+    # If it's a relative path (not starting with /), prepend /
     if not url.startswith('/'):
         return '/' + url
         
@@ -495,6 +496,9 @@ def process_posts():
         # But we need to ensure they are clean and anchors point to root
         for a in new_nav.find_all('a', href=True):
             a['href'] = resolve_anchor_to_root(a['href'])
+        # Fix images in Nav
+        for img in new_nav.find_all('img', src=True):
+            img['src'] = resolve_anchor_to_root(img['src'])
             
         new_body.append(new_nav)
         new_body.append('\n')
@@ -506,7 +510,8 @@ def process_posts():
         for a in main_tag.find_all('a', href=True):
             a['href'] = clean_url(a['href'])
         for img in main_tag.find_all('img', src=True):
-            img['src'] = clean_url(img['src'])
+            # Images in posts should also be absolute
+            img['src'] = resolve_anchor_to_root(img['src'])
             
         # Inject/Update Visual Breadcrumb
         # Find existing breadcrumb to remove/update or prepend
@@ -686,6 +691,8 @@ def update_blog_index_html(posts):
             # Ensure links are clean
             for a in new_nav.find_all('a', href=True):
                 a['href'] = resolve_anchor_to_root(a['href'])
+            for img in new_nav.find_all('img', src=True):
+                img['src'] = resolve_anchor_to_root(img['src'])
             old_nav.replace_with(new_nav)
             
     # Update Footer
@@ -695,6 +702,8 @@ def update_blog_index_html(posts):
             new_footer = copy.copy(footer_component)
             for a in new_footer.find_all('a', href=True):
                 a['href'] = resolve_anchor_to_root(a['href'])
+            for img in new_footer.find_all('img', src=True):
+                img['src'] = resolve_anchor_to_root(img['src'])
             old_footer.replace_with(new_footer)
         
     # Generate Cards for ALL posts
