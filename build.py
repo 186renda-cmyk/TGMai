@@ -349,6 +349,44 @@ def generate_breadcrumb_html(title):
       </ol>
     </nav>"""
 
+def generate_toc(main_tag):
+    """Generate Table of Contents and inject into id='toc'"""
+    toc_div = main_tag.find('div', id='toc')
+    if not toc_div:
+        return
+
+    article = main_tag.find('article')
+    if not article:
+        return
+
+    headings = article.find_all(['h2', 'h3'])
+    
+    if not headings:
+        # Optional: Hide TOC container if empty
+        # toc_div.parent.decompose() 
+        return
+
+    toc_html = ""
+    for i, tag in enumerate(headings):
+        # Generate ID
+        anchor_id = f"section-{i+1}"
+        tag['id'] = anchor_id
+        
+        # Style logic
+        text = tag.get_text(strip=True)
+        # Indent and style
+        if tag.name == 'h2':
+            base_class = "block hover:text-[#24A1DE] transition-colors py-1"
+        else:
+            base_class = "block hover:text-[#24A1DE] transition-colors py-1 pl-4 text-xs text-slate-400"
+            
+        toc_html += f'<a href="#{anchor_id}" class="{base_class}">{text}</a>\n'
+        
+    # Inject
+    toc_soup = BeautifulSoup(toc_html, 'html.parser')
+    toc_div.clear()
+    toc_div.append(toc_soup)
+
 def process_posts():
     print("Starting Build Process...")
     
@@ -444,6 +482,7 @@ def process_posts():
         # Inject Main
         # Clean links in Main
         fix_relative_links_in_post(main_tag)
+        generate_toc(main_tag)
         for a in main_tag.find_all('a', href=True):
             a['href'] = clean_url(a['href'])
         for img in main_tag.find_all('img', src=True):
