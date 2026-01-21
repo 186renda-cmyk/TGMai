@@ -20,11 +20,25 @@ class Config:
         
         # Ignore Lists
         self.ignore_paths = ['.git', 'node_modules', '__pycache__', '.vscode', '.idea']
-        self.ignore_url_prefixes = ['/go/', 'javascript:', 'mailto:', 'tel:', '#', 'tg:']
+        self.ignore_url_prefixes = ['javascript:', 'mailto:', 'tel:', '#', 'tg:']
         self.ignore_url_substrings = ['cdn-cgi']
         self.ignore_files_substrings = ['google', '404.html', 'template']
+        self.redirects = {}
         
     def load(self):
+        # Load _redirects
+        redirects_path = os.path.join(self.root_dir, '_redirects')
+        if os.path.exists(redirects_path):
+            try:
+                with open(redirects_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) >= 2:
+                            self.redirects[parts[0]] = parts[1]
+                print(f"{Fore.CYAN}Loaded {len(self.redirects)} redirects from _redirects")
+            except Exception as e:
+                print(f"{Fore.RED}[WARN] Failed to read _redirects: {e}")
+
         index_path = os.path.join(self.root_dir, 'index.html')
         if not os.path.exists(index_path):
             print(f"{Fore.YELLOW}[WARN] index.html not found. Cannot auto-configure Base URL.")
@@ -242,6 +256,22 @@ class Auditor:
                         continue
                         
                     # Internal Links
+                    # Check for redirects
+                    if href in self.config.redirects:
+                        # Count as inbound link for the redirect source itself
+                        # This prevents the redirect URL from being marked as orphan if it exists as a file (like /go/buy)
+                        # or just acknowledges it's being linked to.
+                        # We use the href as the key.
+                        # Ensure href starts with /
+                        clean_href = href if href.startswith('/') else '/' + href
+                        self.inbound_links[clean_href] += 1
+
+                        # Treat as valid, check if target is external
+                        target = self.config.redirects[href]
+                        if target.startswith('http'):
+                            self.external_links.add(target)
+                        continue
+
                     # URL Format Checks
                     if not href.startswith('/'):
                         print(f"{Fore.YELLOW}[WARN] Relative path used: {href} in {rel_path}")
