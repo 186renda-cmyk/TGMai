@@ -593,6 +593,9 @@ def process_posts():
         for tag in soup.find_all(['script', 'img'], src=True):
             tag['src'] = clean_url(tag['src'])
             
+        # SEO Link Processing
+        process_seo_links(soup, is_index=False)
+            
         # Write back
         with open(post['filepath'], 'w', encoding='utf-8') as f:
             f.write(str(soup.prettify())) # Prettify handles indentation
@@ -624,6 +627,53 @@ def fix_seo_tags(soup, full_url):
     for link in soup.find_all('link', rel='alternate'):
         if link.get('hreflang'):
             link['href'] = full_url
+
+def process_seo_links(soup, is_index=False):
+    """
+    1. /go/buy on Index -> rel="nofollow sponsored noopener noreferrer"
+    2. /go/buy on Others -> href="/#products" (Internal Anchor)
+    3. External Links -> rel="nofollow noopener noreferrer"
+    """
+    for a in soup.find_all('a', href=True):
+        href = a['href']
+        if not href:
+            continue
+            
+        # Check for /go/buy variations
+        is_buy_link = False
+        if '/go/buy' in href:
+             # Check for exact match or path match
+             if href == '/go/buy' or href == '/go/buy/' or href.endswith('/go/buy') or href.endswith('/go/buy/'):
+                 is_buy_link = True
+        
+        if is_buy_link:
+            if is_index:
+                # Add attributes
+                rel = a.get('rel', [])
+                if isinstance(rel, str): rel = rel.split()
+                new_rel = set(rel)
+                new_rel.update(['nofollow', 'sponsored', 'noopener', 'noreferrer'])
+                a['rel'] = list(new_rel)
+            else:
+                # Change to internal anchor
+                a['href'] = '/#products'
+                # Remove nofollow/sponsored if present to pass weight internally
+                rel = a.get('rel', [])
+                if isinstance(rel, str): rel = rel.split()
+                if rel:
+                    for x in ['nofollow', 'sponsored']:
+                        if x in rel:
+                            rel.remove(x)
+                    a['rel'] = rel
+                    
+        # External Links
+        elif href.startswith('http') and DOMAIN not in href and 'tgmai.top' not in href:
+            rel = a.get('rel', [])
+            if isinstance(rel, str): rel = rel.split()
+            new_rel = set(rel)
+            new_rel.update(['nofollow', 'noopener', 'noreferrer'])
+            a['rel'] = list(new_rel)
+
 
 def update_index_html(posts):
     print(f"Updating {INDEX_FILE}...")
@@ -670,6 +720,9 @@ def update_index_html(posts):
     
     # Fix SEO tags explicitly
     fix_seo_tags(soup, f"{DOMAIN}/")
+    
+    # SEO Link Processing (Index Mode)
+    process_seo_links(soup, is_index=True)
             
     with open(INDEX_FILE, 'w', encoding='utf-8') as f:
         f.write(str(soup.prettify()))
@@ -773,6 +826,9 @@ def update_static_page(filename, title=None, breadcrumb_name=None):
     for tag in soup.find_all(['script', 'img'], src=True):
         tag['src'] = clean_url(tag['src'])
 
+    # SEO Link Processing
+    process_seo_links(soup, is_index=False)
+
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(str(soup.prettify()))
 
@@ -855,6 +911,9 @@ def update_blog_index_html(posts):
         
     # Fix SEO tags explicitly
     fix_seo_tags(soup, f"{DOMAIN}/blog/")
+    
+    # SEO Link Processing
+    process_seo_links(soup, is_index=False)
             
     with open(BLOG_INDEX_FILE, 'w', encoding='utf-8') as f:
         f.write(str(soup.prettify()))
