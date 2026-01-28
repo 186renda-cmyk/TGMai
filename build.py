@@ -191,7 +191,7 @@ def generate_recommendations(posts, current_filename):
     if not others:
         return ""
     
-    recs = random.sample(others, min(2, len(others)))
+    recs = random.sample(others, min(4, len(others)))
     
     html = '<div class="mt-8 recommendation-section">\n'
     html += '  <h2 class="text-sm font-bold text-slate-300 mb-3">相关文章</h2>\n'
@@ -316,7 +316,7 @@ def reconstruct_head(soup, metadata, favicons):
         "headline": metadata['title'],
         "description": metadata['description'],
         "datePublished": metadata['date'],
-        "dateModified": datetime.now().strftime("%Y-%m-%d"),
+        "dateModified": metadata.get('date_modified', datetime.now().strftime("%Y-%m-%d")),
         "author": {"@type": "Organization", "name": "TGMai"},
         "publisher": {
             "@type": "Organization", 
@@ -459,6 +459,7 @@ def process_posts():
             'title': title,
             'description': description,
             'date': date_str,
+            'date_modified': datetime.now().strftime("%Y-%m-%d"),
             'keywords': keywords,
             'filename': filename,
             'filepath': filepath,
@@ -470,7 +471,7 @@ def process_posts():
         })
         
     # Sort posts
-    posts.sort(key=lambda x: x['date'], reverse=True)
+    posts.sort(key=lambda x: (x['date'], x['filename']), reverse=True)
     
     # 3. Process each post (Write phase)
     for post in posts:
@@ -915,6 +916,84 @@ def update_blog_index_html(posts):
     # Fix SEO tags explicitly
     fix_seo_tags(soup, f"{DOMAIN}/blog/")
     
+    # Generate and Inject JSON-LD Schema
+    head = soup.head
+    if head:
+        # Remove old schema
+        for s in head.find_all('script', type="application/ld+json"):
+            s.decompose()
+            
+        # Create new schema
+        schema = {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "BreadcrumbList",
+                    "itemListElement": [
+                        {
+                            "@type": "ListItem",
+                            "position": 1,
+                            "name": "首页",
+                            "item": f"{DOMAIN}/"
+                        },
+                        {
+                            "@type": "ListItem",
+                            "position": 2,
+                            "name": "博客",
+                            "item": f"{DOMAIN}/blog/"
+                        }
+                    ]
+                },
+                {
+                    "@type": "CollectionPage",
+                    "name": "TGMai 博客 - 使用教程与资讯",
+                    "description": "TGMai 博客提供最新的 Telegram 使用教程、账号汉化、防封指南、Premium 会员充值及 Tdata 直登号购买攻略。",
+                    "url": f"{DOMAIN}/blog/",
+                    "publisher": {
+                        "@type": "Organization",
+                        "name": "TGMai",
+                        "logo": {
+                            "@type": "ImageObject",
+                            "url": f"{DOMAIN}/assets/logo.png"
+                        }
+                    },
+                    "mainEntity": {
+                        "@type": "ItemList",
+                        "itemListElement": []
+                    }
+                }
+            ]
+        }
+        
+        # Add posts to ItemList
+        for i, post in enumerate(posts):
+            schema["@graph"][1]["mainEntity"]["itemListElement"].append({
+                "@type": "ListItem",
+                "position": i + 1,
+                "item": {
+                    "@type": "BlogPosting",
+                    "headline": post['title'],
+                    "description": post['description'],
+                    "datePublished": post['date'],
+                    "dateModified": post.get('date_modified', post['date']),
+                    "url": post['canonical_url'],
+                    "image": f"{DOMAIN}/assets/logo.png",
+                    "author": {
+                        "@type": "Organization",
+                        "name": "TGMai"
+                    },
+                    "mainEntityOfPage": {
+                        "@type": "WebPage",
+                        "@id": post['canonical_url']
+                    }
+                }
+            })
+            
+        script_tag = soup.new_tag('script', type="application/ld+json")
+        script_tag.string = json.dumps(schema, ensure_ascii=False, indent=2)
+        head.append(script_tag)
+        head.append('\n')
+
     # SEO Link Processing
     process_seo_links(soup, is_index=False)
             
