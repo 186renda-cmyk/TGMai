@@ -430,7 +430,11 @@ def process_posts():
         with open(filepath, 'r', encoding='utf-8') as f:
             soup = BeautifulSoup(f, 'html.parser')
             
-        if soup.title and soup.title.string:
+        # Get Title from H1 (Preferred) or Title Tag
+        h1 = soup.find('h1')
+        if h1:
+            title = h1.get_text(" ", strip=True)
+        elif soup.title and soup.title.string:
             title = soup.title.string.split(' - ')[0].strip()
         else:
             title = "无标题"
