@@ -64,6 +64,17 @@ CATEGORY_MAPPING = {
     'news': 'news', 'update': 'news'
 }
 
+def clean_title(title):
+    """
+    Remove years (e.g. 2025, 2026) to make title evergreen.
+    """
+    import re
+    # Remove 4-digit years starting with 20
+    clean = re.sub(r'\s*20\d{2}\s*', ' ', title)
+    # Remove any resulting double spaces
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    return clean
+
 def get_category_from_filename(filename):
     name = filename.lower()
     for keyword, category in CATEGORY_MAPPING.items():
@@ -77,6 +88,7 @@ def clean_url(url):
     """
     if not url:
         return url
+
         
     # Skip non-http protocols (javascript, tel, mailto, tg, etc)
     if any(url.startswith(p) for p in ['javascript:', 'mailto:', 'tel:', 'tg:', 'data:']):
@@ -199,7 +211,7 @@ def generate_recommendations(posts, current_filename):
     
     for post in recs:
         cat = post['category_obj']
-        html += f'''    <a href="{post['url']}" class="block rounded-xl bg-slate-800 border border-white/10 p-4 hover:border-[#24A1DE] transition">
+        html += f'''    <a href="{post['url']}" class="block rounded-xl bg-slate-800 border border-white/10 p-4 hover:border-[#24A1DE] transition no-underline" style="text-decoration: none !important;">
       <div class="font-semibold text-white">{post['title']}</div>
       <div class="text-xs text-slate-400 mt-1">{cat['label']}</div>
     </a>\n'''
@@ -438,14 +450,27 @@ def process_posts():
             title = soup.title.string.split(' - ')[0].strip()
         else:
             title = "无标题"
+            
+        # Clean title to be evergreen
+        title = clean_title(title)
         
         # Get description
         desc_tag = soup.find('meta', attrs={'name': 'description'})
         description = desc_tag['content'] if desc_tag else ""
+        description = clean_title(description)
         
         # Get Date
+        date_str = "2025-01-01"
         time_tag = soup.find('time')
-        date_str = time_tag['datetime'] if time_tag else "2025-01-01"
+        if time_tag and time_tag.get('datetime'):
+            date_str = time_tag['datetime']
+        else:
+            # Fallback: Search for pattern "YYYY-MM-DD 更新" in the document
+            # Search in the first 20000 chars to cover header/nav/intro
+            text_content = str(soup)[:20000] 
+            match = re.search(r'(\d{4}-\d{2}-\d{2})\s*更新', text_content)
+            if match:
+                date_str = match.group(1)
         
         # Get Keywords
         kw_tag = soup.find('meta', attrs={'name': 'keywords'})
@@ -491,6 +516,11 @@ def process_posts():
         if not main_tag:
             print(f"Warning: No <main> tag in {post['filename']}")
             continue
+
+        # Update H1 with cleaned title
+        h1 = main_tag.find('h1')
+        if h1:
+            h1.string = post['title']
             
         # Create new body structure
         new_body = soup.new_tag('body', attrs={'class': 'min-h-screen bg-slate-900 text-white'})
@@ -1070,17 +1100,22 @@ def generate_sitemap(posts):
     
     # Add Blog Posts
     for post in posts:
+        # Use post date for lastmod, or today if not found
+        lastmod = post.get('date', datetime.now().strftime("%Y-%m-%d"))
         urls.append({
             "loc": post['canonical_url'],
             "changefreq": "weekly",
-            "priority": "0.8"
+            "priority": "0.8",
+            "lastmod": lastmod
         })
         
     sitemap_content = '<?xml version="1.0" encoding="UTF-8"?>\n'
     sitemap_content += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     
     for url_data in urls:
-        sitemap_content += f'  <url>\n    <loc>{url_data["loc"]}</loc>\n    <lastmod>{datetime.now().strftime("%Y-%m-%d")}</lastmod>\n    <changefreq>{url_data["changefreq"]}</changefreq>\n    <priority>{url_data["priority"]}</priority>\n  </url>\n'
+        # Use specific lastmod if available, otherwise default to today (for static pages)
+        lastmod = url_data.get('lastmod', datetime.now().strftime("%Y-%m-%d"))
+        sitemap_content += f'  <url>\n    <loc>{url_data["loc"]}</loc>\n    <lastmod>{lastmod}</lastmod>\n    <changefreq>{url_data["changefreq"]}</changefreq>\n    <priority>{url_data["priority"]}</priority>\n  </url>\n'
         
     sitemap_content += '</urlset>'
     
